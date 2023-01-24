@@ -62,7 +62,7 @@ func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 // Ping attempts to verify that the server is accessible.
 // Returns ErrBadConn if ping fails and consequently DB.Ping will remove the conn from the pool.
 func (c *conn) Ping(ctx context.Context) error {
-	log := logger.WithContext(c.id, driverctx.CorrelationIdFromContext(ctx), "")
+	log := logger.AddContext(logger.Ctx(ctx), c.id, driverctx.CorrelationIdFromContext(ctx), "")
 	ctx = driverctx.NewContextWithConnId(ctx, c.id)
 	ctx1, cancel := context.WithTimeout(ctx, c.cfg.PingTimeout)
 	defer cancel()
@@ -92,7 +92,7 @@ func (c *conn) IsValid() bool {
 // Statement ExecContext is the same as connection ExecContext
 func (c *conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	corrId := driverctx.CorrelationIdFromContext(ctx)
-	log := logger.WithContext(c.id, corrId, "")
+	log := logger.AddContext(logger.Ctx(ctx), c.id, corrId, "")
 	msg, start := logger.Track("ExecContext")
 	defer log.Duration(msg, start)
 
@@ -108,7 +108,7 @@ func (c *conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 	if exStmtResp != nil && exStmtResp.OperationHandle != nil {
 		// we have an operation id so update the logger
-		log = logger.WithContext(c.id, corrId, client.SprintGuid(exStmtResp.OperationHandle.OperationId.GUID))
+		log = logger.AddContext(logger.Ctx(ctx), c.id, corrId, client.SprintGuid(exStmtResp.OperationHandle.OperationId.GUID))
 
 		// since we have an operation handle we can close the operation if necessary
 		alreadyClosed := exStmtResp.DirectResults != nil && exStmtResp.DirectResults.CloseOperation != nil
@@ -139,7 +139,7 @@ func (c *conn) ExecContext(ctx context.Context, query string, args []driver.Name
 // Statement QueryContext is the same as connection QueryContext
 func (c *conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	corrId := driverctx.CorrelationIdFromContext(ctx)
-	log := logger.WithContext(c.id, corrId, "")
+	log := logger.AddContext(logger.Ctx(ctx), c.id, corrId, "")
 	msg, start := log.Track("QueryContext")
 
 	ctx = driverctx.NewContextWithConnId(ctx, c.id)
@@ -155,7 +155,7 @@ func (c *conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 	exStmtResp, _, err := c.runQuery(ctx, query, args)
 
 	if exStmtResp != nil && exStmtResp.OperationHandle != nil {
-		log = logger.WithContext(c.id, driverctx.CorrelationIdFromContext(ctx), client.SprintGuid(exStmtResp.OperationHandle.OperationId.GUID))
+		log = logger.AddContext(logger.Ctx(ctx), c.id, driverctx.CorrelationIdFromContext(ctx), client.SprintGuid(exStmtResp.OperationHandle.OperationId.GUID))
 	}
 	defer log.Duration(msg, start)
 
@@ -173,7 +173,7 @@ func (c *conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 }
 
 func (c *conn) runQuery(ctx context.Context, query string, args []driver.NamedValue) (*cli_service.TExecuteStatementResp, *cli_service.TGetOperationStatusResp, error) {
-	log := logger.WithContext(c.id, driverctx.CorrelationIdFromContext(ctx), "")
+	log := logger.AddContext(logger.Ctx(ctx), c.id, driverctx.CorrelationIdFromContext(ctx), "")
 	// first we try to get the results synchronously.
 	// at any point in time that the context is done we must cancel and return
 	exStmtResp, err := c.executeStatement(ctx, query, args)
@@ -183,7 +183,7 @@ func (c *conn) runQuery(ctx context.Context, query string, args []driver.NamedVa
 	}
 	opHandle := exStmtResp.OperationHandle
 	if opHandle != nil && opHandle.OperationId != nil {
-		log = logger.WithContext(
+		log = logger.AddContext(logger.Ctx(ctx),
 			c.id,
 			driverctx.CorrelationIdFromContext(ctx), client.SprintGuid(opHandle.OperationId.GUID),
 		)
@@ -267,7 +267,7 @@ func logBadQueryState(log *logger.DBSQLLogger, opStatus *cli_service.TGetOperati
 
 func (c *conn) executeStatement(ctx context.Context, query string, args []driver.NamedValue) (*cli_service.TExecuteStatementResp, error) {
 	corrId := driverctx.CorrelationIdFromContext(ctx)
-	log := logger.WithContext(c.id, corrId, "")
+	log := logger.AddContext(logger.Ctx(ctx), c.id, corrId, "")
 
 	req := cli_service.TExecuteStatementReq{
 		SessionHandle: c.session.SessionHandle,
@@ -319,7 +319,7 @@ func (c *conn) executeStatement(ctx context.Context, query string, args []driver
 
 func (c *conn) pollOperation(ctx context.Context, opHandle *cli_service.TOperationHandle) (*cli_service.TGetOperationStatusResp, error) {
 	corrId := driverctx.CorrelationIdFromContext(ctx)
-	log := logger.WithContext(c.id, corrId, client.SprintGuid(opHandle.OperationId.GUID))
+	log := logger.AddContext(logger.Ctx(ctx), c.id, corrId, client.SprintGuid(opHandle.OperationId.GUID))
 	var statusResp *cli_service.TGetOperationStatusResp
 	ctx = driverctx.NewContextWithConnId(ctx, c.id)
 	newCtx := driverctx.NewContextWithCorrelationId(driverctx.NewContextWithConnId(context.Background(), c.id), corrId)
