@@ -456,7 +456,9 @@ func (r *rows) fetchResultPage() error {
 		r.RowScanner = nil
 	}
 
-	if !r.ResultPageIterator.HasNext() {
+	if hasMore, nextErr := r.ResultPageIterator.HasNext(); nextErr != nil {
+		return nextErr
+	} else if !hasMore {
 		return io.EOF
 	}
 

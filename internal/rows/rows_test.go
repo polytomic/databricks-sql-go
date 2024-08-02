@@ -927,7 +927,7 @@ func TestGetArrowBatches(t *testing.T) {
 
 		client := getSimpleClient([]cli_service.TFetchResultsResp{fetchResp1})
 		cfg := config.WithDefaults()
-		rows, err := NewRows("connId", "corrId", nil, client, cfg, nil)
+		rows, err := NewRows(context.Background(), "connId", "corrId", nil, client, cfg, nil)
 		assert.Nil(t, err)
 
 		rows2, ok := rows.(dbsqlrows.Rows)
@@ -951,7 +951,7 @@ func TestGetArrowBatches(t *testing.T) {
 
 		client := getSimpleClient([]cli_service.TFetchResultsResp{})
 		cfg := config.WithDefaults()
-		rows, err := NewRows("connId", "corrId", nil, client, cfg, executeStatementResp.DirectResults)
+		rows, err := NewRows(context.Background(), "connId", "corrId", nil, client, cfg, executeStatementResp.DirectResults)
 		assert.Nil(t, err)
 
 		rows2, ok := rows.(dbsqlrows.Rows)

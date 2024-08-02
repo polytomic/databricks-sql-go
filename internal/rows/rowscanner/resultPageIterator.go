@@ -22,7 +22,7 @@ func errRowsUnandledFetchDirection(dir string) string {
 // Interface for iterating over the pages in the result set of a query
 type ResultPageIterator interface {
 	Next() (*cli_service.TFetchResultsResp, error)
-	HasNext() bool
+	HasNext() (bool, error)
 	Close() error
 	Delimiter
 }
@@ -111,12 +111,12 @@ type resultPageIterator struct {
 var _ ResultPageIterator = (*resultPageIterator)(nil)
 
 // Returns true if there are more pages in the result set.
-func (rpf *resultPageIterator) HasNext() bool {
+func (rpf *resultPageIterator) HasNext() (bool, error) {
 	if rpf.isFinished && rpf.nextResultPage == nil {
 		// There are no more pages to load and there isn't an already fetched
 		// page waiting to retrieved by Next()
 		rpf.err = io.EOF
-		return false
+		return false, nil
 	}
 
 	// If there isn't an already fetched result page try to fetch one now
@@ -125,8 +125,7 @@ func (rpf *resultPageIterator) HasNext() bool {
 		if err != nil {
 			rpf.Close()
 			rpf.isFinished = true
-			rpf.err = err
-			return false
+			return false, err
 		}
 
 		rpf.err = nil
@@ -136,7 +135,7 @@ func (rpf *resultPageIterator) HasNext() bool {
 		}
 	}
 
-	return rpf.nextResultPage != nil
+	return rpf.nextResultPage != nil, nil
 }
 
 // Returns the next page of the result set. io.EOF will be returned if there are
@@ -147,7 +146,9 @@ func (rpf *resultPageIterator) Next() (*cli_service.TFetchResultsResp, error) {
 		return nil, dbsqlerrint.NewDriverError(context.Background(), errRowsNilResultPageFetcher, nil)
 	}
 
-	if !rpf.HasNext() && rpf.nextResultPage == nil {
+	if hasNext, nextErr := rpf.HasNext(); nextErr != nil {
+		return nil, nextErr
+	} else if !hasNext && rpf.nextResultPage == nil {
 		return nil, rpf.err
 	}
 

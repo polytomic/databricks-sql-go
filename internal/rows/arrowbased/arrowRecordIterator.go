@@ -84,15 +84,26 @@ func (ri *arrowRecordIterator) Close() {
 }
 
 func (ri *arrowRecordIterator) checkFinished() {
-	finished := ri.isFinished ||
-		((ri.currentBatch == nil || !ri.currentBatch.HasNext()) &&
-			(ri.batchIterator == nil || !ri.batchIterator.HasNext()) &&
-			(ri.resultPageIterator == nil || !ri.resultPageIterator.HasNext()))
-
-	if finished {
-		// Reached end of result set so Close
+	if ri.isFinished {
 		ri.Close()
+		return
 	}
+
+	if ri.currentBatch == nil || ri.currentBatch.HasNext() {
+		return
+	}
+	if ri.batchIterator == nil || ri.batchIterator.HasNext() {
+		return
+	}
+	if ri.resultPageIterator != nil {
+		hasMore, nextErr := ri.resultPageIterator.HasNext()
+		if hasMore || nextErr == nil {
+			return
+		}
+	}
+
+	// All iterators are done and so we are too.
+	ri.Close()
 }
 
 // Update the current batch if necessary
